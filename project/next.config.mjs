@@ -6,7 +6,7 @@ const withMDX = createMDX();
 const config = {
   reactStrictMode: true,
   output: 'export',
-  basePath: '/introduce_page',
+  basePath: '/introduce_page.github.io',
   images: {
     unoptimized: true,
   },
