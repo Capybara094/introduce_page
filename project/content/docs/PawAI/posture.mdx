@@ -1,5 +1,5 @@
 ---
-title: 語音開發歷程總整理
+title: 姿勢辨識開發歷程總整理
 ---
 # 姿勢辨識
 
@@ -8,12 +8,12 @@ title: 語音開發歷程總整理
 
 # 專案開發紀錄：基於視覺的即時人體動作感知模組 (Real-time Pose & Action Detection)
 
-## 📌 1. 專案目標與背景
+##  1. 專案目標與背景
 
 本模組旨在透過一般 WebCam 攝影機，即時擷取人體的骨架關鍵點（Landmarks），並透過幾何運算與時間序列過濾，辨識出使用者的「靜態姿勢」與「動態動作」。
 此感知模組為前端輸入節點，當成功捕捉到穩定動作後，未來預計將狀態打包成 JSON 格式，透過 ROS2 傳遞給後端的系統或決策大腦（如 VLM/VLA 模型），賦予機器人或系統視覺理解能力。
 
-## 🛠️ 2. 使用技術棧 (Tech Stack)
+##  2. 使用技術棧 (Tech Stack)
 
 - **語言**: Python 3.9+
 - **環境管理**: Conda (Virtual Environment), pip
@@ -24,21 +24,21 @@ title: 語音開發歷程總整理
 
 ---
 
-## 🐛 3. 開發歷程與踩坑紀錄 (Troubleshooting)
+##  3. 開發歷程與踩坑紀錄 (Troubleshooting)
 
 在建置環境與執行的過程中，遭遇了幾個經典的 Python 環境衝突與 Windows 底層問題，以下為解決方案紀錄：
 
-### ❌ 問題一：套件已安裝卻出現 `ModuleNotFoundError`
+###  問題一：套件已安裝卻出現 `ModuleNotFoundError`
 
 - **原因**: 終端機（執行環境）與 VS Code 右下角的 Python 解譯器（Interpreter）不一致。套件安裝在 Conda 的虛擬環境中，但執行時卻使用了全域 (base) 的 Python。
 - **解法**: 確保在終端機執行 `conda activate pose_test`，並確認指令行前方有出現 `(pose_test)` 標籤；若使用 PowerShell 無法啟動，則切換至 Command Prompt (cmd)。
 
-### ❌ 問題二：`numpy.core.multiarray failed to import` (底層 C 語言報錯)
+###  問題二：`numpy.core.multiarray failed to import` (底層 C 語言報錯)
 
 - **原因**: 依賴衝突 (Dependency Conflict)。最新的 Numpy 2.0 版本大改版，導致舊版或預設版本的 OpenCV 與 MediaPipe 底層 C++ 引擎無法相容。
 - **解法**: 將 Numpy 降級回穩定的 1.x 版本（`pip install numpy==1.26.4`）。
 
-### ❌ 問題三：Windows 系統下攝影機卡死或程式無聲崩潰 (Silent Crash)
+###  問題三：Windows 系統下攝影機卡死或程式無聲崩潰 (Silent Crash)
 
 - **原因 1 (套件衝突)**: 環境中同時存在 `opencv-python` 與 `opencv-contrib-python`。兩者在呼叫 `import cv2` 時產生 Namespace 衝突，導致系統崩潰且不輸出任何報錯。
     - **解法**: `pip uninstall opencv-python opencv-contrib-python -y`，然後僅透過安裝 mediapipe 讓其自動拉取正確的依賴。
@@ -47,13 +47,13 @@ title: 語音開發歷程總整理
 - **原因 3 (Windows 相機 API)**: OpenCV 預設呼叫相機的模式在部分 Windows 電腦會 Hang 住。
     - **解法**: 在宣告時強制加上 DirectShow 參數：`cv2.VideoCapture(0, cv2.CAP_DSHOW)`。
 
-### ⚠️ 備註：Pylance 的假警報
+###  備註：Pylance 的假警報
 
 - VS Code 的 Pylance 語法檢查器會對 `mp.solutions` 報錯（找不到屬性）。這是因為 MediaPipe 底層物件為動態生成，屬於編輯器解析限制，**不影響程式實際執行，可直接忽略**。
 
 ---
 
-## 🧠 4. 核心邏輯與演算法設計
+##  4. 核心邏輯與演算法設計
 
 本專案採用**「啟發式規則 (Heuristic Rules)」**進行動作判定，並加入**防抖與抗干擾機制**：
 
@@ -80,7 +80,7 @@ title: 語音開發歷程總整理
 
 ---
 
-## 💻 5. 終極完整版程式碼 (`posetest.py`)
+##  5. 終極完整版程式碼 (`posetest.py`)
 
 ```python
 import cv2
@@ -89,7 +89,7 @@ import time
 import math
 from collections import deque
 
-print("👉 程式開始執行，載入終極動作感知包...")
+print(" 程式開始執行，載入終極動作感知包...")
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
@@ -98,9 +98,9 @@ mp_drawing = mp.solutions.drawing_utils
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 if not cap.isOpened():
-    print("❌ 慘了，Python 讀不到鏡頭！請確認權限或有無被其他程式佔用。")
+    print(" 慘了，Python 讀不到鏡頭！請確認權限或有無被其他程式佔用。")
 else:
-    print("✅ 鏡頭成功打開！準備進入辨識迴圈...")
+    print(" 鏡頭成功打開！準備進入辨識迴圈...")
 
 # 狀態與防抖 (Cooldown) 變數
 current_state = "Idle"
@@ -197,7 +197,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                 if current_state != detected_action:
                     current_state = detected_action
                     if current_state != "Idle":
-                        print(f"✅ 系統確認觸發穩定動作：{current_state}")
+                        print(f" 系統確認觸發穩定動作：{current_state}")
         else:
             pending_action = detected_action
             pending_start_time = time.time()
@@ -233,7 +233,7 @@ cv2.destroyAllWindows()
 ✅ 系統確認觸發穩定動作：Wave
 ```
 
-## 🚀 7. 下一步技術藍圖 (Next Steps)
+##  7. 下一步技術藍圖 (Next Steps)
 
 目前的架構為「啟發式規則 (Heuristic Rules)」主導，雖然輕量且即時，但對於視角變化或不同身型使用者的**泛化能力 (Generalization)** 較弱。
 
