@@ -12,6 +12,11 @@ const { rewrite: rewriteSuffix } = rewritePath(
 );
 
 export default function proxy(request: NextRequest) {
+  // Skip rewrite for root path
+  if (request.nextUrl.pathname === '/') {
+    return NextResponse.next();
+  }
+
   const result = rewriteSuffix(request.nextUrl.pathname);
   if (result) {
     return NextResponse.rewrite(new URL(result, request.nextUrl));
