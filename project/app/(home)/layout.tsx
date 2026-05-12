@@ -1,7 +1,7 @@
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import type { LayoutProps } from 'fumadocs-ui/layouts/shared';
+import type { PropsWithChildren } from 'react';
 import { baseOptions } from '@/app/layout.config';
 
-export default function Layout({ children }: LayoutProps<'/'>) {
+export default function Layout({ children }: PropsWithChildren) {
   return <HomeLayout {...baseOptions}>{children}</HomeLayout>;
 }

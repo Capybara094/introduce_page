@@ -8,6 +8,9 @@ const config = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    turbopack: false,
+  },
 };
 
 export default withMDX(config);
