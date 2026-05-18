@@ -1,11 +1,10 @@
 ---
 title: 姿勢辨識開發歷程總整理
 ---
-# 姿勢辨識
 
 # 專案開發紀錄：基於視覺的即時人體動作感知模組 (Real-time Pose & Action Detection)
 
-## 📌 1. 專案目標與背景
+##  1. 專案目標與背景
 
 本模組旨在透過一般 WebCam 攝影機，即時擷取人體的骨架關鍵點（Landmarks），並透過幾何運算與時間序列過濾，辨識出使用者的「靜態姿勢」與「動態動作」。
 
@@ -13,7 +12,7 @@ title: 姿勢辨識開發歷程總整理
 
 ---
 
-## 🛠️ 2. 使用技術棧 (Tech Stack)
+##  2. 使用技術棧 (Tech Stack)
 
 - **語言**: Python 3.9+
 - **環境管理**: Conda (Virtual Environment), pip
@@ -25,19 +24,47 @@ title: 姿勢辨識開發歷程總整理
 
 ---
 
-## 🐛 3. 開發歷程與踩坑紀錄 (Troubleshooting)
+##  3. 目前功能與限制
 
-### ❌ 問題一：套件已安裝卻出現 ModuleNotFoundError
+### A. 支援姿勢與狀態映射 (Pose Emoji Mapping)
+
+系統目前定義並分類以下 8 種行為狀態：
+
+- `standing`: 🧍 (站立)
+- `sitting`: 🪑 (坐下)
+- `crouching`: 🏋️ (蹲下)
+- `bending`: 🙇 (彎腰)
+- `hands_on_hips`: 🦸 (手插腰)
+- `kneeling_one_knee`: 🧎 (單膝跪地)
+- `fallen`: ⚠️ (跌倒)
+- `unknown`: 🧍 (未知)
+
+### B. 模組穩定度評估
+
+- 🟢 **高穩定度狀態**：`standing` (站立)、`crouching` (蹲下)、`sitting` (坐下)、`bending`( 彎腰)、`fallen` (跌倒)。此類動作幾何特徵鮮明，判定率高。
+- 🟡 **待優化/不穩定狀態**：`hands_on_hips` (手插腰)、`kneeling_one_knee` (單膝跪地)。易受正面視角壓縮或特殊衣物遮擋干擾，仍有小幅波動風險。
+
+### C. 現階段系統限制
+
+1. **視角依賴性**：受限於 2D 影像投影，**身體轉向側面（Side Profile）** 時，關節間的幾何角度與深度落差最為清晰，系統會比較容易且精準地偵測到動作。
+2. **時間特徵延遲**：為了過濾環境雜訊與極短暫的晃動，系統設有時間平滑與防抖機制，使用者**必須維持該姿勢數秒（數幀）以上**，系統才會正式確認並變更當前狀態。
+3. **風險控管機制（跌倒安全鎖）**：目前因為自然活動中（如深度彎腰、突發大動作）引發「跌倒 (Fallen)」狀態的**誤觸頻率仍然偏高**。為避免造成後端系統的警報疲勞，目前**偵測到跌倒後先不觸發後續的自動警示反應**，僅於畫面上做視覺 log 紀錄，待後續結合大腦（VLM）進行多模態複驗。
+
+---
+
+##  4. 開發歷程與踩坑紀錄 (Troubleshooting)
+
+###  問題一：套件已安裝卻出現 ModuleNotFoundError
 
 - **原因**: 終端機（執行環境）與 VS Code 右下角的 Python 解譯器（Interpreter）不一致。套件安裝在 Conda 的虛擬環境中，但執行時卻使用了全域 (base) 的 Python。
 - **解法**: 確保在終端機執行 `conda activate pose_test`，並確認指令行前方有出現 `(pose_test)` 標籤；若使用 PowerShell 無法啟動，則切換至 Command Prompt (cmd)。
 
-### ❌ 問題二：numpy.core.multiarray failed to import (底層 C 語言報錯)
+###  問題二：numpy.core.multiarray failed to import (底層 C 語言報錯)
 
 - **原因**: 依賴衝突 (Dependency Conflict)。最新的 NumPy 2.x 版本進行了底層 C API 大改版，導致舊版或預設版本的 OpenCV 與 MediaPipe 底層 C++ 引擎無法相容。
 - **解法**: 將 NumPy 強制降級回 1.x 的最後穩定版本：`pip install numpy==1.26.4`。
 
-### ❌ 問題三：Windows 系統下攝影機卡死或程式無聲崩潰 (Silent Crash)
+### 問題三：Windows 系統下攝影機卡死或程式無聲崩潰 (Silent Crash)
 
 - **原因 1 (套件衝突)**: 環境中同時存在 `opencv-python` 與 `opencv-contrib-python`。兩者在呼叫 `import cv2` 時產生 Namespace 衝突，導致系統崩潰且不輸出任何報錯。
     - *解法*: `pip uninstall opencv-python opencv-contrib-python -y`，然後僅透過安裝 `mediapipe` 讓其自動拉取正確的相依套件。
@@ -46,12 +73,12 @@ title: 姿勢辨識開發歷程總整理
 - **原因 3 (Windows 相機 API)**: OpenCV 預設呼叫相機的模式在部分 Windows 電腦上會因為硬體抽象層等待而 Hang 住。
     - *解法*: 在宣告時強制加上 DirectShow 參數：`cv2.VideoCapture(0, cv2.CAP_DSHOW)`。
 
-### ❌ 問題四：正面視角投影壓縮，導致「插腰 (Hands on hips)」頻繁落入「站立 (Standing)」
+###  問題四：正面視角投影壓縮，導致「插腰 (Hands on hips)」頻繁落入「站立 (Standing)」
 
 - **原因**: 舊版邏輯依賴手肘（Elbow）在 X 軸方向的外移距離來判斷插腰。當使用者正對鏡頭時，3D 空間的深度在 2D 畫面上被嚴重壓縮，導致 X 軸特徵極不明顯而觸發失敗。
 - **解法**: 放棄 X 軸手肘位移判斷。改用 **「手腕高度接近髖部 Y 座標」** 結合 **「雙手肘彎曲角度限制（elbow_angle < 145°）」**。由於自然垂手時手肘接近打直（≈ 160–180°），加入手肘彎曲角能精準區分垂手與插腰。
 
-### ❌ 問題五：單膝跪地（Kneeling on one knee）與插腰、蹲姿發生嚴重「搶判斷」
+###  問題五：單膝跪地（Kneeling on one knee）與插腰、蹲姿發生嚴重「搶判斷」
 
 - **原因 1**: 做單膝跪姿時，使用者雙手會自然靠近髖部或大腿，導致插腰（Hands on hips）的幾何條件先被觸發，且原本插腰優先順序排在跪姿前面，導致誤判。
 - **原因 2**: 跪地側的腳踝（Ankle）極易因為小腿重疊、地面阻擋或褲子而產生遮擋（Occlusion），導致 MediaPipe 座標盲猜或產生雜訊，造成原本只靠兩膝 Y 軸高低差的邏輯在「蹲下」時也會誤觸。
@@ -65,7 +92,7 @@ title: 姿勢辨識開發歷程總整理
 
 ---
 
-## 🧠 4. 核心邏輯與演算法設計
+##  5. 核心邏輯與演算法設計
 
 本專案採用「啟發式規則 (Heuristic Rules)」進行多階層姿勢判定，具體架構與排除邏輯如下：
 
@@ -93,171 +120,3 @@ title: 姿勢辨識開發歷程總整理
 ### C. 時間序列平滑處理 (Smoothing)
 
 - **滑動多數決 (Sliding Window Majority Vote)**: 為了防止影像環境雜訊導致狀態高頻閃爍（Flickering），使用 `collections.deque(maxlen=5)` 儲存最近 5 幀的原始辨識結果，並取出現次數最多（Mode）的狀態作為最終輸出的穩定狀態。
-
----
-
-## 💻 5. 終極完整版程式碼 (`posetest.py`)
-
-```python
-import cv2
-import mediapipe as mp
-import time
-import math
-from collections import deque
-
-print("👉 程式開始執行，載入終極動作感知包...")
-
-mp_pose = mp.solutions.pose
-mp_drawing = mp.solutions.drawing_utils
-
-# 嘗試打開鏡頭 (加入 CAP_DSHOW 防卡死)
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-
-if not cap.isOpened():
-    print("❌ 慘了，Python 讀不到鏡頭！請確認權限或有無被其他程式佔用。")
-else:
-    print("✅ 鏡頭成功打開！準備進入辨識迴圈...")
-
-# 狀態與防抖 (Cooldown) 變數
-current_state = "Idle"
-pending_action = "Idle"
-pending_start_time = time.time()
-DEBOUNCE_TIME = 0.5  # 動作必須維持 0.5 秒才會被正式確認
-
-# 動態記憶體：記錄過去 15 幀的手腕 X 座標 (揮手) 與 10 幀的臀部 Y 座標 (跳躍)
-right_wrist_x_history = deque(maxlen=15)
-hip_y_history = deque(maxlen=10)
-
-with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # 轉換色彩空間給 MediaPipe
-        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        image.flags.writeable = False
-        results = pose.process(image)
-
-        # 轉回給 OpenCV 顯示
-        image.flags.writeable = True
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-        detected_action = "Idle"
-
-        if results.pose_landmarks:
-            # 畫出骨架
-            mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
-            landmarks = results.pose_landmarks.landmark
-
-            # --- 抓取身體關鍵點 ---
-            l_shldr_y = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y
-            r_shldr_y = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y
-            l_wrist = landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value]
-            r_wrist = landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value]
-
-            l_hip_y = landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y
-            r_hip_y = landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y
-            l_knee_y = landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y
-            r_knee_y = landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].y
-
-            # --- 抓取臉部關鍵點 (防瀏海：改用眼睛代替耳朵) ---
-            mouth_l = landmarks[mp_pose.PoseLandmark.MOUTH_LEFT.value]
-            mouth_r = landmarks[mp_pose.PoseLandmark.MOUTH_RIGHT.value]
-            eye_l = landmarks[mp_pose.PoseLandmark.LEFT_EYE_OUTER.value]
-            eye_r = landmarks[mp_pose.PoseLandmark.RIGHT_EYE_OUTER.value]
-
-            # ================= 動作判斷邏輯開始 =================
-
-            # 1. 微笑 (Smile)：嘴角寬度 vs 雙眼寬度
-            mouth_width = math.hypot(mouth_l.x - mouth_r.x, mouth_l.y - mouth_r.y)
-            eye_width = math.hypot(eye_l.x - eye_r.x, eye_l.y - eye_r.y)
-            if eye_width > 0:
-                smile_ratio = mouth_width / eye_width
-                if smile_ratio > 0.8:
-                    detected_action = "Smile"
-
-            # 2. 拍手 (Clap)
-            wrist_dist = math.hypot(l_wrist.x - r_wrist.x, l_wrist.y - r_wrist.y)
-            if wrist_dist < 0.08:
-                detected_action = "Clap"
-
-            # 3. 舉手系列
-            elif l_wrist.y < l_shldr_y and r_wrist.y < r_shldr_y:
-                detected_action = "Hands_Up"
-            elif l_wrist.y < l_shldr_y and r_wrist.y > r_shldr_y:
-                detected_action = "Raise_Left_Hand"
-            elif r_wrist.y < r_shldr_y and l_wrist.y > l_shldr_y:
-                detected_action = "Raise_Right_Hand"
-
-            # 4. 揮手 (Wave)
-            if r_wrist.y < r_shldr_y:
-                right_wrist_x_history.append(r_wrist.x)
-                if len(right_wrist_x_history) == 15 and (max(right_wrist_x_history) - min(right_wrist_x_history) > 0.15):
-                    detected_action = "Wave"
-            else:
-                right_wrist_x_history.clear()
-
-            # 5. 蹲下 (Squat)
-            if abs(l_hip_y - l_knee_y) < 0.15 and abs(r_hip_y - r_knee_y) < 0.15:
-                detected_action = "Squat"
-
-            # 6. 向上跳 (Hop)
-            hip_y_history.append(l_hip_y)
-            if len(hip_y_history) == 10 and (hip_y_history[0] - l_hip_y > 0.08):
-                detected_action = "Hop"
-
-        # ================= 時間濾波 (防抖機制) =================
-        if detected_action == pending_action:
-            if (time.time() - pending_start_time) >= DEBOUNCE_TIME:
-                if current_state != detected_action:
-                    current_state = detected_action
-                    if current_state != "Idle":
-                        print(f"✅ 系統確認觸發穩定動作：{current_state}")
-        else:
-            pending_action = detected_action
-            pending_start_time = time.time()
-
-        cv2.putText(image, f"Status: {current_state}", (10, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-        cv2.imshow('PawAI Pose Testing', image)
-
-        # ================= 視窗關閉機制 =================
-        if cv2.waitKey(10) & 0xFF == ord('q'): break
-        if cv2.getWindowProperty('PawAI Pose Testing', cv2.WND_PROP_VISIBLE) < 1: break
-
-cap.release()
-cv2.destroyAllWindows()
-```
-
-終端機測試紀錄顯示，模組已能穩定辨識複雜的動態與靜態動作組合，防抖機制運作正常：
-
-## 📈 6. 系統執行與測試結果
-
-終端機測試紀錄顯示，模組已能穩定辨識複雜的動態與靜態動作組合，防抖機制運作正常：
-
-```
-(pose_test) PS C:\\Users\\peich\\project\\elder_and_dog> python posetest.py
-👉 程式開始執行，載入終極動作感知包...
-✅ 鏡頭成功打開！準備進入辨識迴圈...
-...
-✅ 系統確認觸發穩定動作：Hands_Up
-✅ 系統確認觸發穩定動作：Hop
-✅ 系統確認觸發穩定動作：Clap
-✅ 系統確認觸發穩定動作：Raise_Left_Hand
-✅ 系統確認觸發穩定動作：Squat
-✅ 系統確認觸發穩定動作：Wave
-```
-
-## 🚀 7. 下一步技術藍圖 (Next Steps)
-
-目前的架構為「啟發式規則 (Heuristic Rules)」主導，雖然輕量且即時，但對於視角變化或不同身型使用者的**泛化能力 (Generalization)** 較弱。
-
-為接軌更進階的系統應用與機器人感知決策能力，下一步計畫將朝向**資料驅動 (Data-driven)** 或 **端到端 AI 模型** 升級：
-
-1. **選項 A (中階演進 - 資料驅動與深度學習)**：
-    - 棄用寫死的 `if-else` 閾值。收集 MediaPipe 抓取的 33 個特徵點座標數據，利用 `Scikit-learn` 訓練 KNN 或隨機森林 (Random Forest) 等分類器。
-    - 或升級為直接使用 **YOLOv8-Pose / YOLOv11** 模型，大幅增強在人群擁擠、物體遮擋與複雜光線下的骨架提取強健度。
-2. **選項 B (高階演進 - 邁向具身智能 Embodied AI)**：
-    - 考量專案最終目標是讓系統與機器人具備自主決策能力，擬評估導入 **視覺語言模型 (VLM)** 或 **視覺語言動作模型 (VLA)**。
-    - 將深度攝影機 (Depth Camera) 獲取的人體動作與空間影像直接作為輸入，運用如 **LLaVA-v1.5-7B** 或是 **MobileVLA-R1** 架構。讓模型跳過單純的座標計算，直接「理解」畫面脈絡，做到高階的決策對齊（例如：綜合判斷眼前的人是否跌倒、是否需要協助，並直接輸出對應的機器人動作指令）。
