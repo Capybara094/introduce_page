@@ -75,28 +75,24 @@ title: GO2開發歷程總整理
     
 
 1. 開發工具介紹和遇到的困難 
-    1. [人臉辨識](https://www.notion.so/%E4%BA%BA%E8%87%89%E8%BE%A8%E8%AD%98) 
+    1. [人臉辨識]
         - 光線、側臉、臉太小會讓 YuNet 偵測不穩。
         - SFace 需要足夠多角度樣本，否則會 unknown 或相似度不足。
         - 多人同框時 track 會抖，可能造成重複打招呼。
         - 陌生人警報容易誤觸，因為 unknown 不等於真正陌生人，只代表 DB 沒穩定辨識到。
         - 註冊流程還是 script，沒有完整 CLI，現場新增教授/同學的臉不夠順。
-    2. [語音功能](https://www.notion.so/%E8%AA%9E%E9%9F%B3%E5%8A%9F%E8%83%BD)
-    3. [手勢辨識](https://www.notion.so/%E6%89%8B%E5%8B%A2%E8%BE%A8%E8%AD%98)
-    4. [姿勢辨識](https://www.notion.so/%E5%A7%BF%E5%8B%A2%E8%BE%A8%E8%AD%98)
-    5. [辨識物體](https://www.notion.so/%E8%BE%A8%E8%AD%98%E7%89%A9%E9%AB%94)
-    6. [導航避障功能](https://www.notion.so/%E5%B0%8E%E8%88%AA%E9%81%BF%E9%9A%9C%E5%8A%9F%E8%83%BD)
+    2. [導航避障功能]
         - Go2 Pro 內建 LiDAR 對外資料不足，後來改外接 RPLIDAR。
         - Nav2、AMCL、TF、costmap、driver 任一層出問題都會讓狗不動。
         - 曾發生 5/11 撞牆事件，根因不是 Nav2 看不到，而是 reactive_stop clear 後沉默，mux timeout 後讓 hot teleop 接管。
         - /cmd_vel_obstacle 不是限速器，而是高優先權命令通道，設錯會反而主動命令狗前進。
         - D435 depth_clear=false 目前只阻止新任務，不會停掉已執行的 Nav2 goal。
         - Executive NAV executor 還沒完全接上，所以語音直接導航還不是完整主線。
-    7. [PawAI Brain x PawAI Studio](https://www.notion.so/PawAI%20Brain%20x%20PawAI%20Studio)
+    3. [PawAI Brain x PawAI Studio]
         - LLM 不能直接控制機器狗，必須只產生 proposed_skill，再交給 Executive 仲裁。
         - LLM 可能 timeout、回 invalid JSON、或 persona 沒載入導致回答罐頭。
         - single-flight guard 會避免多輪 LLM 同時跑，但 rapid input 可能被 drop。
         - Capability injection 太多會讓 PawAI 變成念功能清單，太少又不會介紹能力。
         - Studio 一開始只顯示使用者問答，自主 TTS 如 object_remark / greet 沒有進 chat bubble，debug 不方便。
         - Gateway 要處理純文字 /tts 和 JSON envelope，否則前端會顯示整段 JSON。
-    8. [文件網站方向](https://www.notion.so/%E6%96%87%E4%BB%B6%E7%B6%B2%E7%AB%99%E6%96%B9%E5%90%91)
+    4. [文件網站方向](https://www.notion.so/%E6%96%87%E4%BB%B6%E7%B6%B2%E7%AB%99%E6%96%B9%E5%90%91)
