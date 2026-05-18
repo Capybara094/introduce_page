@@ -1,21 +1,26 @@
 ﻿---
-title:物體辨識開發歷程總整理
+title: 物體辨識開發歷程總整理
 ---
+
+# 物體偵測系統 (Object Detection)
 
 ## 1. 現有功能
 
 ### COCO 80 類實時偵測
 
-系統支援完整 COCO 80 類別的實時物體偵測，可透過 `class_whitelist` 參數動態限制檢測類別。*P0 子集**包括 person、dog、bottle、cup、chair、dining_table 這 6 個生活場景最常見的物體，適合家庭互動場景。
+系統支援完整 COCO 80 類別的實時物體偵測，可透過 `class_whitelist` 參數動態限制檢測類別。**P0 子集**包括 person、dog、bottle、cup、chair、dining_table 這 6 個生活場景最常見的物體，適合家庭互動場景。
+
 偵測結果發布在 `/event/object_detected` 主題，格式為 JSON 字符串，包含：
- `class_name`：物體類別名稱
- `confidence`：信心度 (0-1)
- `bbox`：邊界框座標 [x1, y1, x2, y2]
- `color`：HSV 12 色分類結果
- `color_confidence`：色彩識別信心度
+- `class_name`：物體類別名稱
+- `confidence`：信心度 (0-1)
+- `bbox`：邊界框座標 [x1, y1, x2, y2]
+- `color`：HSV 12 色分類結果
+- `color_confidence`：色彩識別信心度
+
 白名單預設為空（偵測全 80 類），可在啟動時指定限制：
 ```bash
-ros2 launch object_perception object_perception.launch.py \ class_whitelist:='[0, 16, 39, 41, 56, 60]' # 限制 P0 6 類
+ros2 launch object_perception object_perception.launch.py \
+  class_whitelist:='[0, 16, 39, 41, 56, 60]' # 限制 P0 6 類
 
 ### HSV 12 色分類
 
