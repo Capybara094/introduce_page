@@ -3,6 +3,7 @@
   "description":"PawAI",
   "pages":[
     "index.mdx",
-    "posture.mdx"
+    "posture.mdx",
+    "gesture.mdx"
 ]
 }
