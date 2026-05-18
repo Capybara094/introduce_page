@@ -4,6 +4,7 @@
   "pages":[
     "index.mdx",
     "posture.mdx",
-    "gesture.mdx"
+    "gesture.mdx",
+    "object.mdx"
 ]
 }

@@ -1,0 +1,190 @@
+---
+title: 物體辨識開發歷程總整理
+---
+
+**##  核心指標**
+
+| 指標 | 值 |
+
+|-----|:--:|
+
+| 開發進度 | 85% |
+
+| 驗證狀態 | ✅ 5/6 Jetson 實測 |
+
+| 性能 | 15 FPS / 6-8 Hz 事件 |
+
+| 模型 | YOLO26n.onnx (9.5MB, TensorRT FP16) |
+
+| 可靠性 | 70s 零掉幀，RAM 無洩漏 |
+
+物體辨識系統已於 2026-05-06 完成全鏈路驗證，核心功能包括 COCO 80 類偵測、HSV 12 色分類、中文標籤顯示與 Brain 層集成。系統透過 YOLO26n ONNX 模型加 TensorRT FP16 加速，在 Jetson Orin Nano 上穩定運行，無掉幀且記憶體無洩漏。
+
+- **--**
+
+**## 1. 現有功能**
+
+**### COCO 80 類實時偵測**
+
+系統支援完整 COCO 80 類別的實時物體偵測，可透過 `class_whitelist` 參數動態限制檢測類別。****P0 子集****包括 person、dog、bottle、cup、chair、dining_table 這 6 個生活場景最常見的物體，適合家庭互動場景。
+
+偵測結果發布在 `/event/object_detected` 主題，格式為 JSON 字符串，包含：
+
+- `class_name`：物體類別名稱
+- `confidence`：信心度 (0-1)
+- `bbox`：邊界框座標 [x1, y1, x2, y2]
+- `color`：HSV 12 色分類結果
+- `color_confidence`：色彩識別信心度
+
+白名單預設為空（偵測全 80 類），可在啟動時指定限制：
+
+```bash
+
+ros2 launch object_perception object_perception.launch.py \
+
+class_whitelist:='[0, 16, 39, 41, 56, 60]'  # 限制 P0 6 類
+
+```
+
+**### HSV 12 色分類**
+
+每個偵測框的 ROI（感興趣區域）會進行 HSV 色域分析，將色彩分為 12 個互斥的類別。分類採用優先級順序：首先判斷黑白灰（無色系），再判斷 brown 和 pink（特殊情況），最後判斷其他彩色。
+
+- ***12 色體系與判斷規則****：
+
+```
+
+1-3   : black (V<50), white (S<40,V≥200), gray (S<40,50≤V<200)
+
+4-5   : brown (5≤H≤25,V<130), pink (特例處理)
+
+6-12  : red, orange, yellow, green, cyan, blue, purple
+
+```
+
+核心演算法 `analyze_bbox_color()` 執行 per-pixel mask 統計，計算每個顏色的佔比。若最大佔比小於 0.25，則標記為 "Unknown"（碎片化物體）。實測精度：咖啡色椅子 0.367、紅色杯子 0.89、藍色瓶子 0.74。
+
+**### 中文標籤與 TTS 整合**
+
+系統維護三層中文映射：`COCO_CLASSES_ZH` (80 類)、`COLOR_ZH` (12 色)，避免跨 package 重複定義。Debug 影像使用 PIL ImageDraw 加 CJK 字型渲染中文標籤（cv2.putText 不支援 CJK），顯示格式為 `{顏色} {類別名} {信心度}`，例如 `咖啡色 椅子 0.88`。
+
+Brain 層 (`interaction_executive_node`) 訂閱 `/event/object_detected` 事件，觸發 `object_remark` skill 生成 TTS 回應。為避免與人臉識別衝突，Person 類別已靜音處理，改由 face_perception 專門處理。額外的去重策略包括：
+
+- 類別級：同一類 5 秒內最多發一次（`class_cooldown_sec`）
+- 顏色級：同一 (class, color) 組合 60 秒內只講一次
+
+**### Debug 影像與可視化**
+
+系統實時發布 debug 影像到 `/perception/object/debug_image` 主題（8 Hz），內含彩色邊界框、中文標籤、FPS 與偵測計數。可在 Foxglove 新增 Image panel 訂閱此主題，即時檢視偵測結果與色彩分類。邊界框顏色由 class_id 決定，使用 HSV hue spread 確保視覺上的區分度。
+
+**### 技術亮點**
+
+- ***YOLO26n NMS-free 架構****：與傳統 YOLO 不同，YOLO26n 採用端到端 NMS-free 設計，模型直接輸出最終偵測結果，無需後處理，導致恆定推理延遲 4-6ms（不受場景複雜度影響）。
+- ***TensorRT FP16 加速****：首次啟動時自動編譯 TensorRT engine（3-10 分鐘），快取至 `/home/jetson/trt_cache/yolo26n.engine`，後續啟動秒起。
+- ***Letterbox 前處理與座標變換****：原始影像（D435 1280×720）縮放至 640×640 並進行灰色填充以保持縱橫比。逆變換時需要 clamp 座標至原圖邊界，避免浮點舍入誤差導致超邊界。
+- **--**
+
+**## 2. 功能限制與已知問題**
+
+| 限制 | 影響 | 現況 |
+
+|-----|------|------|
+
+| ****小物件距離**** | <30px 低精度 (>2.5m) | post-demo 評估 yolo26s (+7% mAP) |
+
+| ****色彩環境適應**** | 強反射/混光源不穩定 | 考慮白平衡前處理 |
+
+| ****Person TTS**** | 與人臉識別衝突已靜音 | 設計取捨，frontend 仍顯示 |
+
+| ****COCO 80→TTS 32**** | babbling，限 whitelist 32 類 | 符合需求 |
+
+| ****深度整合**** | 設計完成，代碼未實裝 | P2 優先級 |
+
+| ****INT8 量化**** | Jetson CUDA int8 衝突 (Whisper) | 改用 FP16 折衷 |
+
+系統在小物件偵測（>2.5m 距離）上有精度限制，這源於 YOLO26n 640×640 訓練解析度的約束。色彩識別對光線敏感，強反射表面和混合光源會導致誤判（例如背光物體識別為黑色）。建議應用環境保持相對穩定的光線條件。
+
+Person 類別的特殊處理源於決策樹衝突：YOLO person 與 face_perception 會同時觸發，造成混亂。因此在 Brain 層將 person 靜音，完全交由人臉識別處理，但 frontend 仍顯示 person 的邊界框。
+
+TTS 輸出限制為 32 個 COCO 類別（whitelist），以避免 babbling。超出範圍的類別可偵測到但不發語音回應。深度整合功能（RGB bbox + D435 depth → 3D 座標）已設計完成但代碼未實裝，優先級為 P2。
+
+- **--**
+
+**## 3. 遇到的關鍵困難**
+
+物體辨識過遠無法正確辨識，顏色的部會因為光線亮度而產稱無法判斷或是顏色錯誤的狀況。
+
+**## 4. 系統架構**
+
+```
+
+### 完整資料流
+
+系統的資料流從 D435 相機開始。D435 以 30 FPS 發布 RGB 影像（1280×720），主 node 透過 ROS2 訂閱 (QoS: BEST_EFFORT + depth=1) 接收，在異步回調中儲存最新幀。主推理迴圈以 15 Hz 定時器驅動，從儲存的影像開始：
+
+1. **前處理 (Letterbox)**：原圖縮放至 640×640 並灰色填充，保持縱橫比
+
+2. **YOLO 推理**：透過 ONNX Runtime (TensorRT FP16 provider) 執行，延遲 4-6ms，輸出 (1,300,6) 張量
+
+3. **後處理**：座標逆變換、信心度篩選、HSV 12 色分類
+
+4. **去重**：per-class 5 秒冷卻，避免重複事件
+
+5. **發布**：`/event/object_detected` (JSON) + `/perception/object/debug_image` (8 Hz)
+
+應用層（Brain、Frontend、Foxglove）透過訂閱這兩個主題消費結果，特別是 `interaction_executive_node` 訂閱事件並觸發 TTS 回應。
+
+```
+
+D435 (1280×720)
+
+↓
+
+[Letterbox: 640×640]
+
+↓
+
+[YOLO26n TensorRT FP16: 4-6ms]
+
+↓
+
+[HSV 12 色分類 + Per-class 5s 去重]
+
+↓
+
+/event/object_detected (JSON)
+
+/perception/object/debug_image (8 Hz)
+
+↓
+
+Brain: object_remark skill
+
+(per-(class,color) 60s 去重 + TTS)
+
+```
+
+### 時序與頻率
+
+主推理迴圈 15 Hz，週期 67ms。相機訂閱 (depth=1) 確保只保留最新一幀，避免 buffer 堆積。事件發布限流至 8 Hz 以控制上層應用的負擔。Debug 影像也限流至 8 Hz（受限於圖像編碼與 PIL 字型渲染的開銷）。
+
+- --
+
+## 8. 後續工作與優先級
+
+系統核心功能已穩定，以下列出尚待完成或評估的項目：
+
+| 項目 | 優先級 | 說明 |
+
+|------|:----:|------|
+
+| **yolo26s A/B benchmark** | 中 | +7% mAP vs yolo26n，但 -30% FPS，待 post-demo 評估小物件改善效果 |
+
+| **環境光線白平衡補償** | 低 | 改善 HSV 色彩在混光源下的穩定性 |
+
+| **深度整合 (3D 座標)** | 中 | RGB bbox + D435 aligned_depth → x,y,z；設計完成，代碼待補 |
+
+| **person/face 統一路徑** | 低 | 考慮將 YOLO person + unknown face 統一為單一 TTS 回應 |
+
+- *yolo26s 升級**是最值得關注的候選。mAP 從 40.1% 升至 47.1%（+7%），預期能改善小物件（<30px）偵測率。但推理時間增長 50%（4-6ms → 7-10ms），FPS 下降至 8-10。A/B benchmark 需在 post-demo 後進行，衡量小物件改善是否值得犧牲整體 FPS。
+- --
