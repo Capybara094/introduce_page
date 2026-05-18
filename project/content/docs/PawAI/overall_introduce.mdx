@@ -1,0 +1,103 @@
+# demo
+
+建立時間: 2026年5月13日 下午2:17
+狀態: 專題
+
+1. 請pawai跟教授打招呼
+2. 請pawai 介紹自己
+3. 問 pawai 看到甚麼
+
+4. 介紹發展背景與動機
+    1. 具身智能（Embodied AI）與大型語言模型的典範轉移
+    2. 邊緣運算與多模態感知技術的成熟 
+    3. 實體四足機器人的應用現況與技術痛點 
+    
+    ![overall1.png](/overall1.png)
+    
+5.  roy 介紹 pawai brain架構 和 langgraph架構 
+
+![overall2.png](/overall2.png)
+
+![overall3.png](/overall3.png)
+
+1. 展示現有功能
+    
+    PawAI Brain 使用 LangGraph 整合語音、人臉、手勢、姿勢、物體與導航狀態，產生回答與技能提案。Studio 則顯示聊天、Brain trace、感知事件、TTS 與 capability 狀態。
+    
+2. 功能限制
+    
+    LLM 可能 timeout、回傳格式錯誤，或因 persona / capability 注入不當導致回答太像功能清單。Studio 需要正確同步 ROS2 topic、WebSocket event 和前端狀態，否則 panel 可能不更新。
+    
+3. 未來想加的功能
+    
+    強化 trace 視覺化、demo overview panel、事件健康度 dashboard。Brain 端則希望加入更好的 memory、skill result 回饋，以及更完整的多步驟任務規劃。
+    
+
+---
+
+1. [人臉辨識](https://www.notion.so/%E4%BA%BA%E8%87%89%E8%BE%A8%E8%AD%98)
+    
+    ![overall4.png](/overall4.png)
+    
+    ![overall5.png](/overall5.png)
+    
+    1. 展示現有功能
+        
+        可透過 D435 攝影機偵測人臉，使用 YuNet + SFace 辨識已註冊的人，例如 Roy。辨識結果會進入 PawAI Brain，讓 PawAI 可以回答「你看到誰？」或主動對熟人打招呼。
+        
+    2. 功能限制
+        
+        低光、側臉、臉太小、多人同框時辨識穩定度會下降。陌生人警報目前不適合主打，因為 unknown 只代表沒有穩定辨識成資料庫中的人，不一定是真正陌生人。
+        
+    3. 未來想加的功能
+        
+        加入更完整的人臉註冊 CLI，讓使用者現場新增、驗證、刪除人臉資料。未來也希望加入 re-ID、多人追蹤優化，以及更可靠的陌生人二次確認機制。
+        
+
+1.  [導航避障功能](https://www.notion.so/%E5%B0%8E%E8%88%AA%E9%81%BF%E9%9A%9C%E5%8A%9F%E8%83%BD) 簡單介紹 和 看影片 
+
+![overall6.png](/overall6.png)
+
+[https://youtu.be/uauIndDDyiE](https://youtu.be/uauIndDDyiE)
+
+[https://youtu.be/5Cz16Pounok](https://youtu.be/5Cz16Pounok)
+
+1. 展示現有功能
+    
+    目前已整合 RPLIDAR、AMCL、Nav2、reactive_stop、twist_mux 和 nav_capability。可以做短距離相對導航，並在前方障礙進入 danger zone 時透過 reactive_stop 停車。
+    
+2. 功能限制
+    
+    導航是目前風險最高的功能。nav_ready 還是 basic gate，D435 depth 目前只阻止新任務，不會自動停掉正在跑的 Nav2 goal。語音直接觸發導航的 Executive NAV executor 還沒完全完成。
+    
+3. 未來想加的功能
+    
+    把 D435 depth 融合進 Nav2 local costmap，導入 Nav2 collision_monitor，升級 nav_ready 健康檢查，並補完 Executive NAV executor，讓語音可以安全觸發導航。
+    
+
+1. 開發工具介紹和遇到的困難 
+    1. [人臉辨識](https://www.notion.so/%E4%BA%BA%E8%87%89%E8%BE%A8%E8%AD%98) 
+        - 光線、側臉、臉太小會讓 YuNet 偵測不穩。
+        - SFace 需要足夠多角度樣本，否則會 unknown 或相似度不足。
+        - 多人同框時 track 會抖，可能造成重複打招呼。
+        - 陌生人警報容易誤觸，因為 unknown 不等於真正陌生人，只代表 DB 沒穩定辨識到。
+        - 註冊流程還是 script，沒有完整 CLI，現場新增教授/同學的臉不夠順。
+    2. [語音功能](https://www.notion.so/%E8%AA%9E%E9%9F%B3%E5%8A%9F%E8%83%BD)
+    3. [手勢辨識](https://www.notion.so/%E6%89%8B%E5%8B%A2%E8%BE%A8%E8%AD%98)
+    4. [姿勢辨識](https://www.notion.so/%E5%A7%BF%E5%8B%A2%E8%BE%A8%E8%AD%98)
+    5. [辨識物體](https://www.notion.so/%E8%BE%A8%E8%AD%98%E7%89%A9%E9%AB%94)
+    6. [導航避障功能](https://www.notion.so/%E5%B0%8E%E8%88%AA%E9%81%BF%E9%9A%9C%E5%8A%9F%E8%83%BD)
+        - Go2 Pro 內建 LiDAR 對外資料不足，後來改外接 RPLIDAR。
+        - Nav2、AMCL、TF、costmap、driver 任一層出問題都會讓狗不動。
+        - 曾發生 5/11 撞牆事件，根因不是 Nav2 看不到，而是 reactive_stop clear 後沉默，mux timeout 後讓 hot teleop 接管。
+        - /cmd_vel_obstacle 不是限速器，而是高優先權命令通道，設錯會反而主動命令狗前進。
+        - D435 depth_clear=false 目前只阻止新任務，不會停掉已執行的 Nav2 goal。
+        - Executive NAV executor 還沒完全接上，所以語音直接導航還不是完整主線。
+    7. [PawAI Brain x PawAI Studio](https://www.notion.so/PawAI%20Brain%20x%20PawAI%20Studio)
+        - LLM 不能直接控制機器狗，必須只產生 proposed_skill，再交給 Executive 仲裁。
+        - LLM 可能 timeout、回 invalid JSON、或 persona 沒載入導致回答罐頭。
+        - single-flight guard 會避免多輪 LLM 同時跑，但 rapid input 可能被 drop。
+        - Capability injection 太多會讓 PawAI 變成念功能清單，太少又不會介紹能力。
+        - Studio 一開始只顯示使用者問答，自主 TTS 如 object_remark / greet 沒有進 chat bubble，debug 不方便。
+        - Gateway 要處理純文字 /tts 和 JSON envelope，否則前端會顯示整段 JSON。
+    8. [文件網站方向](https://www.notion.so/%E6%96%87%E4%BB%B6%E7%B6%B2%E7%AB%99%E6%96%B9%E5%90%91)
