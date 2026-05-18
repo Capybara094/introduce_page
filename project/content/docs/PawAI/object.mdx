@@ -21,7 +21,7 @@ title: 物體辨識開發歷程總整理
 ```bash
 ros2 launch object_perception object_perception.launch.py \
   class_whitelist:='[0, 16, 39, 41, 56, 60]' # 限制 P0 6 類
-
+```
 ### HSV 12 色分類
 
 每個偵測框的 ROI（感興趣區域）會進行 HSV 色域分析，將色彩分為 12 個互斥的類別。分類採用優先級順序：首先判斷黑白灰（無色系），再判斷 brown 和 pink（特殊情況），最後判斷其他彩色。
