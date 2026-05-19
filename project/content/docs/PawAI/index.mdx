@@ -1,137 +1,117 @@
 ---
 title: 語音開發歷程總整理
 ---
-
-# PawAI 機器狗：語音模組開發復盤與踩坑總結 (終極完整版)
-
-## 一、架構演進：從「邊緣端」到「端雲協同」
-
-專案初期，團隊曾嘗試將語音模型直接部署在 Unitree Go2 機器狗背上的 Jetson Orin Nano。但實測發現，VRAM 容量不足與運算時的嚴重發熱降頻，導致對話延遲高達 10 秒以上。
-
--->**最終決策：確立「端雲協同」架構。** 邊緣端（機器狗/手機 App）僅負責輕量的麥克風收音與喇叭播放；而龐大的 STT --> LLM --> TTS 矩陣運算，則統一交由遠端 RTX 8000 GPU 伺服器集中處理，大幅解放了硬體限制。
+# PawAI 語音互動系統 專題驗收報告總整理
 
 ---
 
-## 二、語音轉文字 (STT / ASR) 模組復盤
+## **一、 運作原理與系統流程**
 
-在「聽覺」模組的開發中，核心挑戰是必須滿足：「中文優先、離線運作、速度 > 準確度（降低老人等待的延遲感）」。為此，團隊橫向評測了多款主流開源模型。
+**運作原理**：將使用者的自然語音轉換為機器狗大腦 (Brain) 可解析的文字與意圖事件，再將大腦生成的文字回覆，透過動態語音合成 (TTS) 與實體喇叭自然地播放出來。
 
-### 語音辨識 (STT) 比較表
-
-我們的目標是抵抗環境噪音，且推論時間必須在數百毫秒內。
-
-| **模型名稱** | **特性與優勢** | **淘汰原因 / 測試痛點** | **最終選擇** |
-| --- | --- | --- | --- |
-| **FunASR (Paraformer)** | 阿里巴巴達摩院開發，非自回歸架構，速度極快且專為中文特化。 | 測試中出現同音字選字錯誤（如「瓦斯爐」聽成「瓦斯魯」）；且 API 封裝較厚，不易與我們的 Pipeline 整合。 | ❌ |
-| **Qwen3-ASR (0.6B)** | Audio-LLM 架構，具備強大上下文語意修正能力。 | 吃重 VRAM（約 16GB）且載入極慢；長句推論時會出現大量注音文與亂碼幻覺。 | ❌ |
-| **SenseVoice** | 極度輕量化 (~0.3B)，速度飛快。 | 在實驗室或有背景音的環境下，中文抗噪能力較弱，容易辨識錯誤。 | ❌ |
-| **Sherpa-onnx** | C++ 底層，適合邊緣裝置。 | 模型設定繁瑣，與 Python 雲端非同步架構對接成本過高。 | ❌ |
-| **Faster-Whisper** | 基於 CTranslate2 引擎優化。 | **無明顯缺點。精準度繼承 Whisper large-v3-turbo，速度在 RTX 8000 上提升數倍，完美勝出**。 | ✅ |
-
-### 1. 候選模型詳細評測結果
-
-- **FunASR (Paraformer)**：阿里巴巴達摩院開發，非自回歸架構，速度極快且專為中文特化。但在測試中出現選字錯誤（如將「瓦斯爐」聽成「瓦斯魯」、「log檔」聽成「g檔」）。
-    - 🔗 GitHub: [https://github.com/modelscope/FunASR](https://github.com/modelscope/FunASR)
-    - 🤗 Hugging Face: [https://huggingface.co/funasr](https://huggingface.co/funasr)
-- **Sherpa-onnx (Zipformer)**：Next-gen Kaldi 團隊開發，專注於邊緣運算，模型僅 14MB，速度極快。踩坑點在於長句處理嚴重卡頓（處理時間暴增至 1.6 秒），且有嚴重亂碼幻覺（如「瓦斯 l l e」）。
-    - 🔗 GitHub: [https://github.com/k2-fsa/sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)
-    - 🤗 Hugging Face: [https://huggingface.co/k2-fsa](https://huggingface.co/k2-fsa)
-- **Vosk**：極致省資源的老牌離線庫，適合關鍵詞喚醒，但不適合長篇大論的聊天。
-    - 🔗 GitHub: [https://github.com/alphacep/vosk-api](https://github.com/alphacep/vosk-api)
-    - 🤗 Hugging Face: [https://huggingface.co/alphacep](https://huggingface.co/alphacep)
-- **Qwen3-ASR (0.6B)**：Audio-LLM 架構，具備強大上下文語意修正能力。但踩了嚴重的硬體與效能坑，極度吃 VRAM（約 16GB），推論速度慢（大於 2 秒），甚至出現大量注音文與亂碼幻覺，最終被判定為「完全不可用」。
-    - 🤗 Hugging Face: [https://huggingface.co/Qwen](https://huggingface.co/Qwen)
-- **SenseVoice-Small**：阿里通義實驗室新作，準確度極高（推論僅 0.2 秒），甚至支援「情緒識別」（判斷平靜、憤怒等）。致命踩坑點是「冷啟動極慢」，每次執行需耗費 11 秒開啟模型。
-    - 🔗 試玩頁面: SenseVoice HuggingFace Space
-    - 🤗 Hugging Face: [https://huggingface.co/FunAudioLLM/SenseVoiceSmall](https://huggingface.co/FunAudioLLM/SenseVoiceSmall)
-- **Faster-Whisper (Large-v3-Turbo / Small)**：基於 CTranslate2 引擎加速。啟動極快（1.27 秒），推論快（0.35 秒）。踩坑點是在安靜或雜音結尾時容易有「腦補幻覺」（如自己加上「B」或「好」），以及同音字誤判（如 log檔聽成 lockdown），需靠 Prompt 參數修正。
-    - 🤗 Hugging Face: [https://huggingface.co/Systran/faster-whisper-large-v3](https://huggingface.co/Systran/faster-whisper-large-v3)
-
-### 2. STT 最終選型決策
-
--->**最終選擇：Faster-Whisper (Large-v3-Turbo)**
-
-- **獲選原因**：在 Mac M4 上綜合表現最穩定，達到「秒開秒回」（1.27 秒開啟 + 0.35 秒辨識）。其幻覺缺陷可以透過程式碼（`initial_prompt`）有效抑制。
-- **備案保留**：如果未來 PawAI 改寫為常駐背景服務（Daemon/Server），不需反覆經歷 11 秒開機，則會考慮切換至準確度更高且具備情緒識別的 SenseVoice。
+- **運作流程**：
+    1. **感測輸入**：透過外接 USB 麥克風進行實體收音。
+    2. **語音轉意圖 (STT -> Intent)**：截斷語句後，送至雲端轉換為文字，並分析出使用者隱含的動作意圖。
+    3. **大腦決策 (Brain)**：語言模型接收意圖與文字，進行對話邏輯推論，決定回覆台詞與對應動作。
+    4. **語音合成 (TTS)**：將台詞分派給雲端或本地模型生成音訊檔。
+    5. **系統輸出**：透過 WebRTC 傳送至機器狗的外接 USB 喇叭發聲。
 
 ---
 
-## 三、語言模型 (LLM) 選型簡述
+## **二、 系統架構與模型技術詳情**
 
-作為中樞思考大腦，最終選擇了 **Qwen2.5-7B-Instruct (4-bit 量化)**。其優勢在於中文語感極佳，能嚴格遵守「PawAI 機器狗」的熱情口語化人設；更重要的是，4-bit 量化技術大幅節省了 VRAM，確保 STT 與 TTS 能在同一張顯卡上並行運作而不崩潰。
+語音系統是 PawAI 最核心的互動入口，承載了機器狗與使用者高達 70% 的互動比例。我們設計了一個具備高度容錯與備援機制的 11-stage 端到端 (End-to-End) 閉環架構，主要分為三大節點：
 
-- 🤗 Hugging Face: [https://huggingface.co/Qwen/Qwen2.5-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
+### **1.ASR 語音轉文字與意圖節點**
 
----
+- **核心節點**：`stt_intent_node`
+- **執行環境**：Jetson 邊緣運算平台（負責實體收音與本地模型運算）＋ RTX 8000 伺服器（負責雲端主力模型運算）
+- **底層推論模型**：雲端 SenseVoice、本地 SenseVoice Local、本地 Faster-Whisper (int8 量化)
+- **三層容錯架構 (Provider Chain)**：
+    - **主力 (雲端)**：雲端 SenseVoice。將語音功能放在雲端的原因是運算速度極快（延遲僅 350-400ms），且辨識效果與準確度極高。
+    - **次級 (邊緣)**：本地 SenseVoice Local。
+    - **備援 (離線)**：本地 Faster-Whisper。確保網路完全斷線時，PawAI 仍具備基礎聽覺。
+- **回音閘門 (Echo Gate)**：為防止「語音自激」（機器狗聽到自己講話而無限迴圈），系統會監聽 `/state/tts_playing` 狀態。發聲期間與結束後的 1.0 秒冷卻期內，強制拋棄麥克風收音。
+- **抗幻覺機制**：針對 Whisper 在安靜環境下易產生「字幕by索蘭婭」等靜音幻覺，導入 OpenCC 繁簡轉換並設立黑名單過濾，節省後端運算資源。
 
-## 四、文字轉語音 (TTS) 模組復盤
+### **2.大腦決策中心**
 
-TTS 的核心訴求是：「可離線、極速反應、聲音自然」。團隊針對雲端與本地端生成式 AI 模型進行了嚴格的對比。
+- **核心節點**：`llm_bridge_node`
+- **執行環境**：雲端 API（主副腦推論）＋ Jetson CPU（本地備案執行）
+- **底層推論模型**：`gpt-5.4-mini` (主腦)、`gemini-3-flash` (副腦)、純規則模板 (RuleBrain)
+- **主副腦架構**：主腦處理主要對話與決策；當主腦超時或異常時，無縫切換至副腦；若逢完全斷線，則由基於模板的 RuleBrain 進行規則防呆。
+- **模型選型歷程**：開發期曾實測多款本地模型（如 Qwen 0.5B/2B/32B），但發現其在「講笑話、說故事」等擬真閒聊情境下語感生硬，最終決策採用雲端 LLM 以確保互動品質。
 
-### 🗣️ 語音合成 (TTS) 比較表
+### **3.TTS 語音合成節點**
 
-我們要的是即時生成、中英夾雜流暢，且不能依賴不穩定的外部網路 API。
-
-| **模型名稱** | **特性與優勢** | **淘汰原因 / 測試痛點** | **最終選擇** |
-| --- | --- | --- | --- |
-| **Edge-TTS** | 微軟免費 API，聲音自然好聽。 | **致命傷：高度依賴外部網路連線。** 只要實驗室網路一慢，延遲就會飆升到 3-5 秒，甚至超時斷線，無法作為穩定的工業級解法。 | ❌ |
-| **CosyVoice** | 語音克隆 (Voice Cloning) 能力極強，情感豐富。 | 模型過於龐大，生成完整句子的時間太長。雖然好聽，但在「即時對話」的場景下顯得太過笨重。 | ❌ |
-| **Qwen3-TTS** | 聲音品質好。 | 偏向傳統大模型架構，生成速度依然無法壓在 1 秒內的黃金標準。 | ❌ |
-| **MeloTTS** | 極速、輕量、支援多語言。 | **完美支援即時串流生成，中英夾雜不卡頓，本地 GPU 生成幾乎是瞬間完成，是即時互動的最佳解**。 | ✅ |
-
-### 1. 候選模型詳細評測結果
-
-- **CosyVoice**：阿里雲生成式音訊模型，支援零樣本語音複製。踩坑紀錄：在本地端測試時遭遇效能災難。耗時隨字數「線性暴增」，長句生成需高達 62.97 到 75 秒。且因算力不足，長句會出現嚴重的「口齒不清/含滷蛋」與發音錯誤（把「機」唸成 Key）。與 DeepSpeed 軟體環境相容性不佳，硬體資源要求極高。
-    - 🤗 Hugging Face: [https://huggingface.co/FunAudioLLM/CosyVoice-300M](https://huggingface.co/FunAudioLLM/CosyVoice-300M)
-- **Qwen3-TTS (0.6B)**：同樣基於 LLM 架構。踩坑紀錄：遭遇嚴重的生成式「幻覺」，長句生成直接崩潰變成亂碼與注音文（如 `辨ㄒㄧˋ`、`ㄐㄧㄝ ㄏㄤˊ`）。推論極慢，長句耗時 22.75 秒，模型載入高達 8~9 秒，完全不適合即時互動。
-    - 🤗 Hugging Face: [https://huggingface.co/Qwen](https://huggingface.co/Qwen)
-- **Edge-TTS (備案)**：微軟 Azure 雲端 API，聲音廣播級、極度穩定，無論句子長短皆能維持在約 0.6 秒的極速生成。踩坑紀錄：曾遇到網路重試導致 135.69 秒異常延遲（需寫 Timeout 機制）。最大致命傷是「必須連網」，若展示場地無 WiFi 則機器狗會直接失語。
-    - 🔗 GitHub: [https://github.com/rany2/edge-tts](https://github.com/rany2/edge-tts)
-    - 🤗 Hugging Face: *(無，此為微軟 Azure 閉源雲端 API)*
-- **MeloTTS**：由 MyShell 團隊開發，基於 VITS 技術（跳過拼音，文字直達聲音），主打能離線跑且像真人。優勢：模型極輕量（約 0.1~0.2B），CPU 就能輕鬆跑。推論速度達 0.1~0.5 秒（秒回等級），中英切換自然。踩坑紀錄：中英夾雜時發音需調教（例如 "Paul" 會唸成 "泡"），必須另外建立發音字典強制標註修正。
-    - 🤗 Hugging Face: [https://huggingface.co/myshell-ai/MeloTTS-Chinese](https://huggingface.co/myshell-ai/MeloTTS-Chinese)
-
-### 2. TTS 最終選型決策
-
---> **最終選擇：MeloTTS**
-
-- **獲選原因**：它是唯一能同時滿足「斷網能跑（純離線）」且「推論極速（0.1~0.5秒）」的最佳解決方案，完美契合 PawAI 的需求。
-- **優化策略**：透過建立發音字典修正特定專有名詞，並將語速（speed）微調至 1.1 或 1.2 以提升自然度。
-- **備案保留**：Edge-TTS 作為有網路環境下的高品質備案使用。
+- **核心節點**：`tts_node`
+- **執行環境**：雲端 API（雙軌路由）＋ Jetson CPU（本地 Piper 備援）
+- **底層推論模型**：Gemini 3.1 Flash TTS (高品質)、Edge TTS (極速)、Piper 模型 (本地備援)
+- **動態雙軌路由 (Dual-Route) 與本地備援**：
+    - **高品質通道 (Quality Lane)**：針對 ≥12 字的長句，或帶有情緒標籤（如 `[excited]`）的句子，路由至雲端 Gemini 3.1 Flash TTS 進行高擬真情緒渲染。
+    - **極速通道 (Fast Lane)**：針對「停」等安全關鍵字或 <12 字短句，路由至雲端 Edge TTS，確保在 1.5 秒內做出緊急回應。
+    - **本地備援**：在本地端配置了 Piper 模型，確保在網路不穩或斷線時，依然能夠透過本地算力完成語音合成發聲。
+- **情緒繼承與平行切片 (Chunking)**：為解決長句生成過慢，系統將長句切片平行處理，並強制將開頭的情緒標籤複製到每一個 Chunk，確保語氣連貫。
 
 ---
 
-## 五、全線整合與底層踩坑血淚史 (Troubleshooting)
+## **三、 核心功能介紹**
 
-在成功將 Faster-Whisper (耳) + Qwen2.5-7B (腦) + MeloTTS (嘴) 串聯成 Pipeline 後，團隊遭遇了最密集的系統級 Bug 爆發。以下是 5 個最致命的坑與對應解法：
-
-### 🕳️ 坑洞 1：延遲載入導致的「尷尬 13 秒冷啟動」
-
-- **踩坑原因**：AI 套件具備「延遲載入 (Lazy Loading)」機制，第一次說話時系統才把好幾 GB 的模型搬進 GPU，導致第一次對話卡頓近 13 秒。
-- **解法**：實作**「暖機 (Warm-up) 機制」**。在程式啟動時，背景自動丟入一句假資料 (`warmup_dummy.wav`) 強迫大腦與嘴巴先跑過一次推論。優化後對話反應大幅縮短至 2.5 到 4 秒左右，達成「秒回」境界。
-
-### 🕳️ 坑洞 2：TTS 長句「越講越小聲」 (Attention Collapse)
-
-- **踩坑原因**：語音生成模型的物理限制。只要 LLM 回覆超過 7~8 秒，MeloTTS 唸到後面就會出現注意力崩潰，聲音衰減甚至變成氣音或雜訊。
-- **解法**：導入**「斷句拼接與音量鎖定」**。嚴格限制 LLM 用句號或驚嘆號斷句，並透過程式將長文切分為短句 (Chunking) 分批生成；檢查並強制放大每一段的音量 (Normalization)，最後再將短音訊無縫拼接，同時將 TTS 語速鎖定為 1.0。
-
-### 🕳️ 坑洞 3：多 GPU 搶奪導致 LLM 量化崩潰
-
-- **踩坑原因**：Qwen 4-bit 量化模型預設將張量分散掛載到多張 GPU，但框架不支援跨卡的動態指派，導致 `ValueError: .to is not supported for 4-bit...` 記憶體崩潰。
-- **解法**：在程式碼頂端強制宣告環境變數，戴上「眼罩」將程序的視野鎖死在單一張顯示卡上：`os.environ["CUDA_VISIBLE_DEVICES"] = "1"`。
-
-### 🕳️ 坑洞 4：張量資料型態打架 (Half but found Float)
-
-- **踩坑原因**：Faster-Whisper 模型設定為追求極速的 `FP16 (Half)`，但有時環境異常會自動降級交給 CPU 運算。CPU 不支援 FP16 只能用預設的 `FP32 (Float)`，導致兩種資料格式撞車引發 `RuntimeError`。
-- **解法**：不僅在初始化時明確宣告 `device="cuda", compute_type="float16"`，更加上防呆機制，確保啟動前伺服器確實抓到了 NVIDIA 顯示卡。
-
-### 🕳️ 坑洞 5：伺服器顯示卡權限被反鎖 (Insufficient Permissions)
-
-- **踩坑原因**：共用實驗室伺服器時，其他組員執行高負載的 Isaac Sim 模擬，導致 NVIDIA 底層驅動程式將 GPU 的讀寫權限鎖死，噴出 `Failed to initialize NVML: Insufficient Permissions`。
-- **解法**：請求具有 `sudo` 權限的管理員執行 `sudo chmod a+rw /dev/nvidia*` 強制釋放權限，並養成透過 `nvidia-smi` 查詢 Memory-Usage 避開高負載車道的習慣。
+- **自然語音喚醒與傾聽**：透過外接 USB 麥克風持續收音，並使用 Energy VAD 動態判斷語句段落。
+- **意圖解析與肢體連動**：將使用者的語音轉為文字後，解析出隱含的動作意圖（如 `greet`, `sit`, `take_photo`），並同步觸發 Go2 機器狗的實體動作與語音回覆。
+- **情感化對話陪伴**：支援情緒標籤解析，讓機器狗的回應不再是冰冷的機器聲，而是帶有喜怒哀樂的陪伴者。
 
 ---
 
-## 六、下一步計畫 (Next Steps)
+## 四、展示對話
 
-目前伺服器端的「超級大腦」已經具備極速反應且聲音穩定。下一個階段的任務是**「網路連線」**。團隊計畫將這支 Python 程式包裝成網路 API（如 FastAPI），讓 Mac 控制端或 Unitree Go2 機器狗能真正透過網路傳送麥克風收音，並即時接收語音播出來，完成最終的整合實裝。
+1. 早安伸個懶腰 我等等要出門上課 請問現在的天氣跟時間如何
+2. 我要出門了 坐下等我
+3. 我回來了 站起來
+4. 講一個關於大野狼的故事
+5. 我現在心情不好 想出門散心
+
+---
+
+## **四、 輸出資料規格 (LLM Contract)**
+
+各節點間的溝通嚴格遵循 JSON 規格（定義於 `llm_contract.py`），確保大腦決策與硬體執行的精準對接。標準輸出格式如下：
+
+JSON
+
+```python
+{
+  "intent": "greet",              
+  "reply_text": "[excited] 你好！我是 PawAI，你專屬的居家互動機器狗！", 
+  "selected_skill": "hello",      
+  "reasoning": "使用者主動打招呼，應以開心語氣回應並做出打招呼動作。", 
+  "confidence": 0.98              
+}
+```
+
+---
+
+## **五、 相關核心程式檔案清單**
+
+- `stt_intent_node.py`: 負責收音、VAD 截斷、呼叫 ASR 轉譯及 Echo Gate 實作。
+- `intent_classifier.py`: 負責初步意圖分類與 Whisper 幻覺黑名單過濾。
+- `llm_bridge_node.py`: 管理大腦路由，處理 GPT、Gemini 與 RuleBrain 的切換邏輯。
+- `tts_node.py`: 實作 TTS 雙軌路由、快取 (Cache) 機制與本地 Piper 備援、平行 Chunking。
+- `vad_node.py`: 實作 Energy VAD 邏輯，控管靜音等待與緩衝時間。
+- `llm_contract.py`: 定義系統資料結構與合約。
+
+---
+
+## **六、 系統現狀限制**
+
+- **VAD 拖尾延遲 (效能瓶頸)**：目前使用基於音量的 Energy VAD，為了避免中斷使用者說話，設定了 800ms 靜音等待與 500ms 緩衝。這導致系統在使用者講完話後，需要 2~10 秒才能判定「收音結束」，是端到端互動最大的延遲來源。
+- **Go2 喇叭數據通道例外錯誤 (Silent Fail)**：Go2 原廠 WebRTC DataChannel 不穩定，若發生錯誤時未強制送出 4002 (EXIT) 指令，會導致喇叭永久卡死。
+- **外接硬體機構限制**：為解決原廠喇叭音質差 (16kHz) 與音量小的問題而改用外接 USB 喇叭。但當機器狗執行大動作時，USB 線路容易發生物理性鬆脫，導致系統報錯。
+
+---
+
+## **七、 未來優化方向**
+
+- **升級 AI 神經網路 VAD**：計畫將 Energy VAD 汰換為基於神經網路的 VAD（如 Silero VAD），精準辨識「人聲」而非單純的「音量」，預計可將收音判斷延遲大幅縮短至 500ms 以內。
+- **支援複合動作指令 (Composite Skills)**：修改 `llm_contract.py` 的規格限制，將單一動作指令升級為「動作陣列 (Action Array)」，希望可以同時觸發兩個動作。例如讓機器狗能夠一邊起立、一邊開心踏步或扭動身體，讓互動更流暢生動。
+- **客製化 3D 列印硬體機構**：針對外接 USB 喇叭與麥克風，設計與列印專屬的固定座，從硬體層面解決走動時線路鬆脫的痛點。
