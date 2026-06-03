@@ -1,0 +1,60 @@
+---
+title: GPU連線驗證教學
+---
+## 第一步
+
+先按最左邊的電腦圖示
+
+連接到school_GPU，成功的話會顯示綠色
+
+![GPU_verify1.png](GPU_verify1.png)
+
+2.點選最左便那排的此圖示:
+
+![GPU_verify2.png](GPU_verify2.png)
+
+點選Open Folder (開啟資料夾)
+
+上方會跳出路徑選單，預設應該就是 /home/roy422/。
+直接按 Enter 確定。
+(這時候 VS Code 會重新整理一下，這是正常的)
+
+### 3.在伺服器建立新檔案
+
+現在左側邊欄顯示的就是 **學校伺服器的硬碟** 了。
+
+1. 在左側空白處按右鍵 -> **New File (新增檔案)**。
+2. 檔名輸入 檔名(ex. test.py)。
+3. 貼上以下程式碼
+
+```c
+import torch
+import os
+
+# 1. 檢查 PyTorch 版本
+print(f"PyTorch version: {torch.__version__}")
+
+# 2. 檢查 CUDA (顯卡支援) 是否可用
+print(f"CUDA available: {torch.cuda.is_available()}")
+
+# 3. 顯示目前程式能看到的顯卡數量
+print(f"Device count: {torch.cuda.device_count()}")
+
+# 4. 顯示目前抓到的顯卡名稱 (如果有抓到的話)
+if torch.cuda.is_available():
+    # 這裡的 0 是指程式看到的「第1張」，不是物理上的 ID
+    print(f"Current device: {torch.cuda.get_device_name(0)}")
+else:
+    print("No GPU detected for this process.")
+```
+
+**4.按 Ctrl + S 存檔**。
+
+5.按執行 跑出以下即是成功
+
+![GPU_verify3.png](GPU_verify3.png)
+
+最終長相
+
+![GPU_verify4.png](GPU_verify4.png)
+

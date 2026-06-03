@@ -1,0 +1,11 @@
+{
+  "title":"Research",
+  "description":"Research",
+  "pages":[
+    "coco.mdx",
+    "posture.mdx",
+    "gesture.mdx",
+    "object.mdx",
+    "overall_introduce.mdx"
+]
+}

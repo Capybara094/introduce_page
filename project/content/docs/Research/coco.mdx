@@ -1,0 +1,115 @@
+---
+title: coco資料集介紹
+---
+
+[MAC tutorial](COCO%EF%BC%8811%2023%EF%BC%89/MAC%20tutorial%202b40f5eac5108050a771ce2dc64c3fe7.md)
+
+[windows 下載教學](COCO%EF%BC%8811%2023%EF%BC%89/windows%20%E4%B8%8B%E8%BC%89%E6%95%99%E5%AD%B8%202b30f5eac51080bf8bf0fe944be62507.md)
+
+[Achievements](https://app.notion.com/p/Achievements-2b50f5eac51080b4bc57c8af416a083a?pvs=21) 
+
+# COCO vs MobileNet vs YOLOv8
+
+### 1. 釐清名詞：COCO 不是模型，是「題庫」
+
+- **COCO (Common Objects in Context)**：這是一本**教科書（資料集）**，裡面有 80 種物品的照片（人、狗、手機、杯子...）。
+- **MobileNet (你現在用的)**：這是一位**考生**，他讀了 COCO 這本教科書。
+- **YOLOv8** ：這是另一位**考生**（比較年輕、反應比較快），他也讀了同一本 COCO 教科書。
+
+**結論**：
+
+不管你用 MobileNet 還是 YOLOv8，他們**能辨識的東西是一模一樣的**（都是那 80 種）。所以對於負責做「決策」的同學來說，輸入的資訊並沒有變。
+
+### 2. MobileNet vs. YOLOv8：差別很大嗎？
+
+| **特性** | **MobileNet** | **YOLOv8** | **比較結果** |
+| --- | --- | --- | --- |
+| **全名** | MobileNetV3 (Faster R-CNN) | You Only Look Once (v8) | - |
+| **速度** | 快 (適合手機/嵌入式) | **極快** (即時性更強) | YOLO 勝  |
+| **準度** | 中上 | **高** (目前業界最強之一) | YOLO 勝  |
+| **ROS2 支援** | 原生支援好 (vision_msgs) | 也有現成套件 | 平手 |
+
+---
+
+# coco遠端混合
+
+首先，有一個**觀念澄清**：
+這個 `ros2_coco_detector`使用的是 **MobileNet**，這是一個傳統的「物件偵測（Object Detection）」模型，它只能辨識 COCO 資料集中定義好的 80 種物體（如人、車、狗、椅子等），這其實**不是 VLM**。
+
+- **VLM (如 GPT-4o, LLaVA)**：可以看懂圖片並回答任何問題（例如：「這隻狗在做什麼？」）。
+- **此 Repo (MobileNet)**：只能告訴你「這裡有一隻狗，位置在 [x,y]」。
+
+但它在機器人開發中非常有用，可以用來做「預處理」或「觸發機制」。以下是針對你的架構建議：
+
+---
+
+### 1. 架構建議：混合式開發 (Hybrid Setup)
+
+考慮到使用的是 Mac，而模擬器和 GPU 都在虛擬機 (VM) 上，建議採用 **「運算在雲端，控制/監控在本地」** 的模式。
+
+- **虛擬機 (Ubuntu + GPU)**：
+    - 執行 Go2 模擬器（產生相機影像）。
+    - 執行 `ros2_coco_detector`（利用 GPU 進行影像辨識）。
+- **你的 Mac**：
+    - 接收辨識結果 (`/detected_objects`)。
+    - 編寫你的 VLM 邏輯（決策層）。
+    - 使用 RViz2 查看影像與結果。
+
+**為什麼不要在 Mac 本機跑偵測？**
+雖然 Mac M1/M2/M3 效能很強，但在 ROS2 環境下設定 PyTorch + MPS (Apple GPU) 加速可能會遇到相容性問題（尤其是這個 repo 寫死了 CUDA 或 CPU）。若有 GPU VM，把吃效能的影像處理丟給 VM 最省事。
+
+---
+
+### 2. 具體執行步驟
+
+### 第一步：在虛擬機 (VM) 上部署偵測器
+
+這是最重要的部分，因為模擬器的影像在那裡。
+
+1. **安裝環境**：在 VM 上建立環境（建議用 RoboStack 或原聲 ROS2）。
+2. **確認相機 Topic**：你需要知道 Go2 模擬器發布的影像 Topic 名稱。
+    - 通常是 `/camera/color/image_raw` 或 `/go2_camera/image`。
+    - 指令檢查：`ros2 topic list`
+3. **執行偵測節點**：
+使用 GPU 執行並重新映射 (Remap) topic 名稱。假設模擬器影像 topic 是 `/go2/camera/image`：
+    
+    ```bash
+    # 在 VM 上執行
+    ros2 run coco_detector coco_detector_node --ros-args \\
+      -p device:=cuda \\
+      -r /image:=/go2/camera/image
+    ```
+    
+    *這樣 VM 就會開始拼命算，並把結果發布到 `/detected_objects`。*
+    
+
+### 第二步：在 Mac 本機連接與開發
+
+你需要把 Mac 連上 VM 的 ROS2 網路。
+
+1. **Mac 安裝 ROS2**：
+    - 推薦使用 **RoboStack** (Conda 環境)，這在 Mac 上最穩定。
+    - 或者使用 Docker。
+2. **設定網路 (ROS_DOMAIN_ID)**：
+    - 確保 VM 和你的 Mac 在同一個 VPN 或區域網路內。
+    - 兩邊都要設定相同的 ID，例如：`export ROS_DOMAIN_ID=30` (兩邊都要設)。
+3. **測試接收**：
+    - 在 Mac 終端機輸入：`ros2 topic list`
+    - 如果你能看到 `/detected_objects` 和 `/annotated_image`，代表連線成功！
+4. **開發你的 VLM 邏輯**：
+    - 你的程式碼只需要訂閱 `/detected_objects` 或 `/annotated_image`。
+    - 如果是要做 VLM，你可能會擷取 `/annotated_image` 再傳給 VLM 模型（如果 VLM 跑在雲端 API 或另一台伺服器）。
+
+---
+
+### 3. 關於 VLM 的整合 (如果你真的是要做 VLM)
+
+如果你是指「我要用這個 Repo 來輔助 VLM」，那流程通常是：
+
+1. **Coco Detector** 快速篩選：先用這個輕量模型偵測「有人出現」。
+2. **觸發 VLM**：當偵測到人，再把那張圖片傳給 VLM（因為 VLM 很慢、很貴，不能每一幀都跑）。
+3. **VLM 分析**：詢問 VLM「這個人在揮手嗎？」。
+
+### 總結你的下一步：
+
+**不需要先在本地跑測試**（除非你想練習 ROS2 指令）。直接連入 **虛擬機 (VM)**，先把 `ros2_coco_detector` 在那裡跑起來，並讓它成功訂閱到模擬器的影像，這是最關鍵的第一步。
