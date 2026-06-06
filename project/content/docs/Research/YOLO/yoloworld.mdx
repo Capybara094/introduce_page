@@ -1,0 +1,97 @@
+---
+title: YoloWorld 本地測試
+---
+# 主要問題
+
+Yoloworld主要是找特定的物品（自己輸入的target），原本的用途並不是主動辨識。
+
+後來我加入原本coco有的那80種物品，發現要找的東西很容易被coco原本的覆蓋掉（像是電腦螢幕會被識別成coco裡原有的tv而不是我自己輸入的screen）重複輸入的物品也會先以coco的為主（像是cup&我自己輸入的white cup會以coco的cup為主）除非要給他一個靜止的畫面讓他好好去辨識比較有機會辨識成自己輸入的target。
+
+結論就是丟需要找的物品就好 他的辨識邏輯就是依照你丟給他的物品去判別 ”是或不是” 你丟的這些東西 東西越多他就越混亂。**請只設定那個特殊物品的單字**，不要把 COCO 80 類全開，那樣只會增加雜訊和誤判！
+
+```python
+from ultralytics import YOLO
+import cv2
+
+# 1. 載入模型
+# 建議使用 'yolov8s-worldv2.pt' (Small v2版) -> 速度快，Mac M4 跑起來跟飛一樣
+# 如果覺得不夠準，可以改用 'yolov8m-worldv2.pt' (Medium)
+print("正在載入 YOLO-World 模型...")
+model = YOLO('yolov8s-worldv2.pt')
+
+coco_classes = [
+    "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
+    "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
+    "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+    "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
+    "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
+    "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+    "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone",
+    "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
+    "hair drier", "toothbrush"
+]
+
+# 2. 定義你想找什麼 (這就是你的核心任務！)
+# 這裡可以隨便打字，完全不用重新訓練
+custom_target = ["controller","white speaker","black microphone","white trackpad"]
+
+# 3. 【關鍵步驟】把兩份名單合體！
+# 這樣模型就會同時找這 83 種東西
+combined_classes = coco_classes + custom_target
+
+# 設定模型只找這些東西
+model.set_classes(combined_classes)
+print(f"🎯 目前鎖定目標: {custom_target}")
+# 3. 開啟攝影機 (0 通常是 Mac 內建，1 通常是 iPhone 接力)
+cap = cv2.VideoCapture(0)
+
+# 如果是 iPhone 接力，可以設定高一點的解析度
+# cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+while cap.isOpened():
+    success, frame = cap.read()
+    if not success:
+        print("無法讀取鏡頭畫面")
+        break
+
+    # 4. 進行偵測
+    # conf=0.1 因為開放詞彙比較難，信心度門檻建議設低一點
+    # iou=0.5 去除重疊框
+    results = model(frame, conf=0.3, iou=0.3, verbose=False)
+
+    # 5. 畫圖並顯示
+    # plot() 會自動把框框和標籤畫在圖上
+    annotated_frame = results[0].plot()
+
+    cv2.imshow("YOLO-World Local Test", annotated_frame)
+
+    # 按 'q' 離開
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+```
+
+## 解決方法
+
+1. 加上形容詞，盡量貼切，更精準的名詞（外觀顏色）
+2. 踢掉競爭對手（不要加入coco清單）
+3. 在程式碼中，把 iou 設高一點（允許更多重疊）
+
+# 結果
+
+YOLO-World 不是靠運氣猜，它是靠「這張圖片的樣子」**跟**「這個單字的意義」有多像來決定的。
+
+- **它的強項**：可以聽懂沒學過的字。
+- **它的弱項**：如果兩個字的「長相定義」很像（螢幕 vs 電視、平板 vs 筆電），它就會混淆。
+
+所以他是以語言（單字）去猜測聯想，因為他知道名詞長什麼樣子。他本身的模型是訓練過的（看過數億張照片和標題）
+
+- **iPad** ➡️ 轉換成密碼：[扁扁的, 亮亮的, 長方形, 玻璃質感...]
+- **Dog** ➡️ 轉換成密碼：[毛毛的, 四條腿, 有尾巴, 鼻子長長的...]
+
+[Achievements](https://app.notion.com/p/Achievements-2b50f5eac51080b4bc57c8af416a083a?pvs=21) 
+
+輸入的white speaker, controller, white trackpad…都有辨識到
