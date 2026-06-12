@@ -151,6 +151,3 @@ description: 文章描述
 
 ---
 
-<p align="center">
-  Made with ❤️ by the PawAI Team
-</p>
