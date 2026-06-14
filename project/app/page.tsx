@@ -11,33 +11,21 @@ import StatsCounter from "@/app/(home)/StatsCounter";
 /* ─── Feature card data ─────────────────────────────────── */
 const FEATURES = [
   {
-    icon: "🤖",
-    title: "AI 整合實戰",
+    title: "改裝前",
+    image:"/改裝前.JPG",
+    imageAlt:"機器狗改裝前原廠外觀",
     description:
-      "深入探索 LLM、RAG、Embedding 等核心 AI 技術，附帶完整的工程實作筆記與踩坑紀錄。",
+      "原廠 Go2 機器狗，尚未加裝任何感測器與運算模組的初始狀態。",
     accentColor: "#1f66f4",
   },
   {
-    icon: "🔍",
-    title: "智慧文件搜尋",
+    title: "硬體改裝後",
+    image:"/硬體改裝.JPG",
+    imageAlt:"機器狗硬體改裝後",
     description:
-      "支援中文全文搜尋，快速定位你需要的技術文章，讓知識觸手可及。",
+      "加裝深度攝影機、外接喇叭、LIDAR、PawAI Brain 與 PawAI Studio 後的完整形態。",
     accentColor: "#8b5cf6",
-  },
-  {
-    icon: "📝",
-    title: "工程師視角筆記",
-    description:
-      "不只是理論，每篇文章都來自真實開發場景，包含程式碼片段與架構設計思路。",
-    accentColor: "#06b6d4",
-  },
-  {
-    icon: "🚀",
-    title: "持續更新內容",
-    description:
-      "隨著 AI 技術快速演進，筆記內容持續新增，跟上最新的工程趨勢。",
-    accentColor: "#10b981",
-  },
+  }
 ];
 
 /* ─── Stats data ────────────────────────────────────────── */
@@ -193,7 +181,7 @@ export default function HomePage() {
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, amount: 0.1 }}
-            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
+            className="grid gap-8 sm:grid-cols-2 max-w-3xl mx-auto"
           >
             {FEATURES.map((feat) => (
               <FeatureCard key={feat.title} {...feat} />

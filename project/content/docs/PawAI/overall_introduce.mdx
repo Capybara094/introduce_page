@@ -2,37 +2,6 @@
 title: GO2開發歷程總整理
 ---
 
-1. 請pawai跟教授打招呼
-2. 請pawai 介紹自己
-3. 問 pawai 看到甚麼
-
-4. 介紹發展背景與動機
-    1. 具身智能（Embodied AI）與大型語言模型的典範轉移
-    2. 邊緣運算與多模態感知技術的成熟 
-    3. 實體四足機器人的應用現況與技術痛點 
-    
-    ![overall1.png](/overall1.png)
-    
-5.  roy 介紹 pawai brain架構 和 langgraph架構 
-
-![overall2.png](/overall2.png)
-
-![overall3.png](/overall3.png)
-
-1. 展示現有功能
-    
-    PawAI Brain 使用 LangGraph 整合語音、人臉、手勢、姿勢、物體與導航狀態，產生回答與技能提案。Studio 則顯示聊天、Brain trace、感知事件、TTS 與 capability 狀態。
-    
-2. 功能限制
-    
-    LLM 可能 timeout、回傳格式錯誤，或因 persona / capability 注入不當導致回答太像功能清單。Studio 需要正確同步 ROS2 topic、WebSocket event 和前端狀態，否則 panel 可能不更新。
-    
-3. 未來想加的功能
-    
-    強化 trace 視覺化、demo overview panel、事件健康度 dashboard。Brain 端則希望加入更好的 memory、skill result 回饋，以及更完整的多步驟任務規劃。
-    
-
----
 
 1. [人臉辨識](https://www.notion.so/%E4%BA%BA%E8%87%89%E8%BE%A8%E8%AD%98)
     
