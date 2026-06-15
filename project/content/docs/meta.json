@@ -2,6 +2,7 @@
   "title":"Name of Folder",
   "pages":[
     "index",
+    "Demo.mdx",
     "---Introduction---",
     "Hardware_introduction",
     "Software_introduction",

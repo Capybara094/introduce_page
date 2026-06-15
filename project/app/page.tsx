@@ -135,10 +135,11 @@ export default function HomePage() {
         />
         <div className="mx-auto w-full max-w-4xl text-center">
           <ScrollSection from="none" amount={0.1}>
-            <p className="mb-10 text-blg font-bold uppercase tracking-[0.3em] text-blue-400">
+            <p className="mb-10 text-lg font-bold uppercase tracking-[0.3em] text-blue-400">
               甚麼是PawAI?
             </p>
           </ScrollSection>
+
           <ScrollReveal
             baseOpacity={0.08}
             enableBlur
@@ -148,7 +149,8 @@ export default function HomePage() {
             textClassName="text-center"
           >
             1.原廠硬體為基礎的二次開發
-            2.整合多模態感知、視覺辨識、語音互動、邊緣推理、ROS2導航與任務決策模組
+            2.整合多模態感知、視覺辨識、語音互動
+            邊緣推理、ROS2導航與任務決策模組
             3.一個能在居家或機構守護人的Physical AI原型
           </ScrollReveal>
         </div>
@@ -247,7 +249,8 @@ export default function HomePage() {
             containerClassName="text-center"
             textClassName="text-center"
           >
-            工程筆記承載了開源精神，希望能被學習、被複製、被改良、被擴散
+            工程筆記承載了開源精神，希望能
+            被學習、被複製、被改良、被擴散
           </ScrollReveal>
           <ScrollSection from="bottom" delay={0.3} className="mt-6">
             <p className="text-sm text-white/35 tracking-wide">— PawAI組</p>
