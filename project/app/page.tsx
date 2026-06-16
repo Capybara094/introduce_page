@@ -4,7 +4,10 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import BlurText from "@/app/(home)/BlurText";
 import ScrollReveal from "@/app/(home)/ScrollReveal";
-import ScrollSection, { staggerContainer, staggerItem } from "@/app/(home)/ScrollSection";
+import ScrollSection, {
+  staggerContainer,
+  staggerItem,
+} from "@/app/(home)/ScrollSection";
 import FeatureCard from "@/app/(home)/FeatureCard";
 import StatsCounter from "@/app/(home)/StatsCounter";
 
@@ -12,20 +15,19 @@ import StatsCounter from "@/app/(home)/StatsCounter";
 const FEATURES = [
   {
     title: "改裝前",
-    image:"/改裝前.JPG",
-    imageAlt:"機器狗改裝前原廠外觀",
-    description:
-      "原廠 Go2 機器狗，尚未加裝任何感測器與運算模組的初始狀態。",
+    image: "/GO2原機.png",
+    imageAlt: "機器狗改裝前原廠外觀",
+    description: "原廠 Go2 機器狗，尚未加裝任何感測器與運算模組的初始狀態。",
     accentColor: "#1f66f4",
   },
   {
-    title: "硬體改裝後",
-    image:"/硬體改裝.JPG",
-    imageAlt:"機器狗硬體改裝後",
+    title: "改裝後",
+    image: "/改裝後.png",
+    imageAlt: "機器狗硬體改裝後",
     description:
-      "加裝深度攝影機、外接喇叭、LIDAR、PawAI Brain 與 PawAI Studio 後的完整形態。",
+      "加裝深度攝影機、外接喇叭、變壓器、3D列印外殼、Jetson Orin Nano。",
     accentColor: "#8b5cf6",
-  }
+  },
 ];
 
 /* ─── Stats data ────────────────────────────────────────── */
@@ -48,7 +50,6 @@ export default function HomePage() {
       className="flex flex-col -mx-4 md:-mx-6"
       style={{ background: "var(--color-fd-background, #09090b)" }}
     >
-
       {/* ══════════════════════════════════════════════════════
           Section 1 — Hero
       ════════════════════════════════════════════════════════ */}
@@ -73,11 +74,17 @@ export default function HomePage() {
         {/* Top-left corner accent */}
         <div
           className="pointer-events-none absolute left-0 top-0 -z-10 h-px w-1/3"
-          style={{ background: "linear-gradient(90deg, transparent, rgba(31,102,244,0.6))" }}
+          style={{
+            background:
+              "linear-gradient(90deg, transparent, rgba(31,102,244,0.6))",
+          }}
         />
         <div
           className="pointer-events-none absolute left-0 top-0 -z-10 h-1/4 w-px"
-          style={{ background: "linear-gradient(180deg, transparent, rgba(31,102,244,0.4))" }}
+          style={{
+            background:
+              "linear-gradient(180deg, transparent, rgba(31,102,244,0.4))",
+          }}
         />
 
         {/* ── Title ── */}
@@ -100,7 +107,6 @@ export default function HomePage() {
         >
           PawAI:基於多模態感知融合之自主尋物與具身互動。
         </motion.p>
-
 
         {/* ── Scroll hint ── */}
         <motion.div
@@ -149,9 +155,8 @@ export default function HomePage() {
             textClassName="text-center"
           >
             1.原廠硬體為基礎的二次開發
-            2.整合多模態感知、視覺辨識、語音互動
-            邊緣推理、ROS2導航與任務決策模組
-            3.一個能在居家或機構守護人的Physical AI原型
+            2.整合多模態感知、邊緣推理、ROS2之基礎自主導航
+            3.一個能走進真實空間的Physical AI
           </ScrollReveal>
         </div>
       </section>
@@ -161,20 +166,21 @@ export default function HomePage() {
       ════════════════════════════════════════════════════════ */}
       <section className="relative px-6 py-28 overflow-hidden">
         {/* Divider line top */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-16"
-          style={{ background: "linear-gradient(180deg, transparent, rgba(255,255,255,0.1))" }}
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-16"
+          style={{
+            background:
+              "linear-gradient(180deg, transparent, rgba(255,255,255,0.1))",
+          }}
         />
 
         <div className="mx-auto max-w-6xl">
           <ScrollSection from="bottom" className="mb-16 text-center">
-            <p className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-purple-400">
-              歷程
-            </p>
             <h2 className="text-4xl font-black text-white md:text-5xl lg:text-6xl">
-              機器狗的前後對比
+              開發歷程
             </h2>
             <p className="mt-5 text-lg text-white/45 max-w-xl mx-auto">
-              深度攝影機、外接喇叭、LIDAR、PawAI Brain、PawAI Studio
+              深度攝影機、外接喇叭、變壓器、3D列印外殼、Jetson Orin Nano。
             </p>
           </ScrollSection>
 
@@ -189,6 +195,13 @@ export default function HomePage() {
               <FeatureCard key={feat.title} {...feat} />
             ))}
           </motion.div>
+          <ScrollSection from="bottom" className="mt-16 flex justify-center">
+            <img
+              src="/GO2硬體介紹.png"
+              alt="硬體介紹"
+              className="rounded-2xl w-full max-w-3xl object-cover shadow-2xl shadow-black/40"
+            />
+          </ScrollSection>
         </div>
       </section>
 
@@ -204,8 +217,12 @@ export default function HomePage() {
           }}
         />
         {/* Horizontal rule */}
-        <div className="absolute top-0 inset-x-0 h-px"
-          style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent)" }}
+        <div
+          className="absolute top-0 inset-x-0 h-px"
+          style={{
+            background:
+              "linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent)",
+          }}
         />
 
         <div className="mx-auto max-w-5xl">
@@ -232,8 +249,12 @@ export default function HomePage() {
           Section 5 — 格言 ScrollReveal
       ════════════════════════════════════════════════════════ */}
       <section className="relative px-6 py-28 overflow-hidden">
-        <div className="absolute top-0 inset-x-0 h-px"
-          style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent)" }}
+        <div
+          className="absolute top-0 inset-x-0 h-px"
+          style={{
+            background:
+              "linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent)",
+          }}
         />
         <div className="mx-auto max-w-3xl text-center">
           <ScrollSection from="bottom">
@@ -249,8 +270,7 @@ export default function HomePage() {
             containerClassName="text-center"
             textClassName="text-center"
           >
-            工程筆記承載了開源精神，希望能
-            被學習、被複製、被改良、被擴散
+            工程筆記承載了開源精神，希望能 被學習、複製、改良、擴散
           </ScrollReveal>
           <ScrollSection from="bottom" delay={0.3} className="mt-6">
             <p className="text-sm text-white/35 tracking-wide">— PawAI組</p>
@@ -282,18 +302,28 @@ export default function HomePage() {
               scale: [ring.base, ring.peak, ring.base],
               opacity: [0.12, 0.25, 0.12],
             }}
-            transition={{ repeat: Infinity, duration: 4.5, ease: "easeInOut", delay: ring.delay }}
+            transition={{
+              repeat: Infinity,
+              duration: 4.5,
+              ease: "easeInOut",
+              delay: ring.delay,
+            }}
             className={`pointer-events-none absolute left-1/2 top-1/2 -z-10 ${ring.size} -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-500/25`}
           />
         ))}
 
         <div className="mx-auto max-w-3xl text-center">
-          <ScrollSection from="bottom" className="flex flex-col items-center gap-7">
+          <ScrollSection
+            from="bottom"
+            className="flex flex-col items-center gap-7"
+          >
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-blue-400">
               準備好了嗎
             </p>
             <h2 className="text-4xl font-black text-white md:text-5xl lg:text-6xl leading-tight">
-              開始你的<br />PawAI之旅
+              開始你的
+              <br />
+              PawAI之旅
             </h2>
             <p className="max-w-md text-lg text-white/45 leading-relaxed">
               所有筆記免費開放，無需登入，深入閱讀。
@@ -318,7 +348,6 @@ export default function HomePage() {
           </p>
         </ScrollSection>
       </div>
-
     </div>
   );
 }
