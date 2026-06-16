@@ -17,8 +17,7 @@ const FEATURES = [
     title: "改裝前",
     image: "/GO2原機.png",
     imageAlt: "機器狗改裝前原廠外觀",
-    description: "原廠 Go2 機器狗，尚未加裝任何感測器與運算模組的初始狀態。",
-    accentColor: "#1f66f4",
+    description: "原廠 Go2 機器狗。",
   },
   {
     title: "改裝後",
@@ -26,7 +25,6 @@ const FEATURES = [
     imageAlt: "機器狗硬體改裝後",
     description:
       "加裝深度攝影機、外接喇叭、變壓器、3D列印外殼、Jetson Orin Nano。",
-    accentColor: "#8b5cf6",
   },
 ];
 
@@ -155,7 +153,8 @@ export default function HomePage() {
             textClassName="text-center"
           >
             1.原廠硬體為基礎的二次開發
-            2.整合多模態感知、邊緣推理、ROS2之基礎自主導航
+            2.整合多模態感知、邊緣推理、
+            ROS2之基礎自主導航
             3.一個能走進真實空間的Physical AI
           </ScrollReveal>
         </div>
