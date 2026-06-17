@@ -65,7 +65,7 @@ title: 各模型測試總整理
 | 技術 / 模組 | 來源 / 部署方式 | 測試結果與特性摘要 | 決策狀態與原因 |
 | --- | --- | --- | --- |
 | **Nav2 + SLAM** | ROS2 Navigation Stack | 用於已知地圖定位與導航| **採用：導航主線基礎**，但目前只適合短距/已知地圖 |
-| **RPLIDAR / 2D LiDAR** | 外接 LiDAR | 用於前方障礙偵測、reactive stop、地圖/scan 顯示 | **採用：目前避障核心感測器** |
+| **RPLIDAR / 2D LiDAR/D435** | 外接 LiDAR+深度攝影機 | 用於前方障礙偵測、reactive stop、地圖/scan 顯示 | **採用：目前避障核心感測器** |
 | **indoor_tight profile** | PawAI reactive profile | ±18° 窄錐改善誤擋；適合室內窄場 | **採用：室內 demo 建議 profile** |
 | **D435 depth_clear gate** | Intel RealSense D435 depth | 目前主要是 Brain / safety gate，不是真正接進 Nav2 costmap | **部分採用**。不能宣稱 D435 已融合導航 |
 | **D435 + LiDAR fusion** | 研究方向 | 目標是 depth → scan/costmap，補 2D LiDAR 的盲點 | **研究 / prototype，未完成** |
